@@ -6,76 +6,99 @@ load_dotenv()
 
 HF_TOKEN = os.getenv("HF_API_TOKEN", "")
 HF_BASE = "https://api-inference.huggingface.co/models"
-HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 
-async def query_model(model: str, payload: dict) -> dict | list | None:
+async def query_model(model: str, payload: dict):
+    """Call a HuggingFace Inference API model. Returns parsed JSON or None on any error."""
+    if not HF_TOKEN:
+        return None
     url = f"{HF_BASE}/{model}"
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(url, headers=HEADERS, json=payload)
-        if resp.status_code == 200:
-            return resp.json()
-        if resp.status_code == 503:
-            # Model is loading — return None, caller handles fallback
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    try:
+        async with httpx.AsyncClient(timeout=45) as client:
+            resp = await client.post(url, headers=headers, json=payload)
+            if resp.status_code == 200:
+                return resp.json()
+            # 503 = model loading, anything else = error — both return None
             return None
+    except Exception:
         return None
 
 
+def _extract_scores(result) -> list:
+    """Normalize HF response into a flat list of {label, score} dicts."""
+    if not result:
+        return []
+    # Shape A: [[{label, score}, ...]]  (most classification models)
+    if isinstance(result, list) and result and isinstance(result[0], list):
+        return result[0]
+    # Shape B: [{label, score}, ...]
+    if isinstance(result, list) and result and isinstance(result[0], dict):
+        return result
+    return []
+
+
 async def detect_ai_text(text: str) -> float:
-    """Returns probability [0,1] that text is AI-generated."""
-    truncated = text[:512]
-    result = await query_model(
-        "Hello-SimpleAI/chatgpt-detector-roberta",
-        {"inputs": truncated}
-    )
-    if not result or not isinstance(result, list):
-        return 0.5  # neutral fallback
-    # Result shape: [[{"label":"...", "score":...}, ...]]
-    scores = result[0] if isinstance(result[0], list) else result
-    for item in scores:
-        if isinstance(item, dict) and item.get("label", "").upper() in ("CHATGPT", "AI", "MACHINE"):
-            return round(item["score"], 4)
-    # If no AI label found, return complement of human score
-    for item in scores:
-        if isinstance(item, dict) and item.get("label", "").upper() in ("HUMAN",):
-            return round(1.0 - item["score"], 4)
+    """Returns probability [0,1] that text is AI-generated. Falls back to 0.5."""
+    try:
+        result = await query_model(
+            "Hello-SimpleAI/chatgpt-detector-roberta",
+            {"inputs": text[:512]}
+        )
+        scores = _extract_scores(result)
+        for item in scores:
+            label = item.get("label", "").upper()
+            if label in ("CHATGPT", "AI", "MACHINE", "LABEL_1"):
+                return round(float(item["score"]), 4)
+        # Return complement of human score if found
+        for item in scores:
+            label = item.get("label", "").upper()
+            if label in ("HUMAN", "LABEL_0"):
+                return round(1.0 - float(item["score"]), 4)
+    except Exception:
+        pass
     return 0.5
 
 
 async def detect_fake_news(title: str, text: str) -> dict:
-    """Returns {label: FAKE|REAL, confidence: float}."""
-    input_text = f"{title}. {text[:500]}"
-    result = await query_model(
-        "hamzab/cnn-fake-news-detection",
-        {"inputs": input_text}
-    )
-    if not result or not isinstance(result, list):
-        return {"label": "UNKNOWN", "confidence": 0.5}
-    scores = result[0] if isinstance(result[0], list) else result
-    best = max(scores, key=lambda x: x.get("score", 0))
-    label = best.get("label", "UNKNOWN").upper()
-    if label not in ("FAKE", "REAL"):
-        label = "REAL" if "real" in label.lower() else "FAKE"
-    return {"label": label, "confidence": round(best["score"], 4)}
+    """Returns {label: FAKE|REAL|UNKNOWN, confidence: float}."""
+    try:
+        input_text = f"{title}. {text[:500]}"
+        result = await query_model(
+            "hamzab/cnn-fake-news-detection",
+            {"inputs": input_text}
+        )
+        scores = _extract_scores(result)
+        if scores:
+            best = max(scores, key=lambda x: float(x.get("score", 0)))
+            label = best.get("label", "UNKNOWN").upper()
+            if label not in ("FAKE", "REAL"):
+                label = "FAKE" if "fake" in label.lower() else "REAL"
+            return {"label": label, "confidence": round(float(best["score"]), 4)}
+    except Exception:
+        pass
+    return {"label": "UNKNOWN", "confidence": 0.5}
 
 
 async def get_sentiment(text: str) -> dict:
-    """Returns sentiment scores for manipulation detection."""
-    truncated = text[:512]
-    result = await query_model(
-        "cardiffnlp/twitter-roberta-base-sentiment",
-        {"inputs": truncated}
-    )
-    if not result or not isinstance(result, list):
-        return {"negative": 0.33, "neutral": 0.34, "positive": 0.33}
-    scores = result[0] if isinstance(result[0], list) else result
-    out = {}
-    for item in scores:
-        lbl = item.get("label", "").lower()
-        if "neg" in lbl:
-            out["negative"] = item["score"]
-        elif "neu" in lbl:
-            out["neutral"] = item["score"]
-        elif "pos" in lbl:
-            out["positive"] = item["score"]
-    return out
+    """Returns {negative, neutral, positive} scores. Falls back to neutral."""
+    try:
+        result = await query_model(
+            "cardiffnlp/twitter-roberta-base-sentiment",
+            {"inputs": text[:512]}
+        )
+        scores = _extract_scores(result)
+        out = {"negative": 0.33, "neutral": 0.34, "positive": 0.33}
+        for item in scores:
+            lbl = item.get("label", "").lower()
+            val = float(item.get("score", 0))
+            if "neg" in lbl or lbl == "label_0":
+                out["negative"] = val
+            elif "neu" in lbl or lbl == "label_1":
+                out["neutral"] = val
+            elif "pos" in lbl or lbl == "label_2":
+                out["positive"] = val
+        return out
+    except Exception:
+        pass
+    return {"negative": 0.33, "neutral": 0.34, "positive": 0.33}

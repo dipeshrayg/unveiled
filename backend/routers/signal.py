@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from models.schemas import ScanRequest, ScanResponse
+from models.schemas import ScanRequest, ScanResponse, SubScores
 from models.database import save_scan, get_aggregate_stats
 from engines.signal_engine import analyze_content
 
@@ -11,21 +11,49 @@ async def scan_content(req: ScanRequest):
     """
     Analyze a webpage for reality purity.
     Returns a Reality Purity Score (0-100) with sub-scores and explanation.
+    Always returns a valid response — never a 500 error.
     """
     if not req.text and not req.title:
         raise HTTPException(status_code=400, detail="No content provided for analysis.")
 
-    result = await analyze_content(req)
+    try:
+        result = await analyze_content(req)
+    except Exception as exc:
+        # Graceful degradation — return a neutral score with explanation
+        print(f"[SIGNAL] analyze_content failed: {exc}")
+        result = ScanResponse(
+            reality_score=50,
+            color="YELLOW",
+            label="Moderate Pollution",
+            sub_scores=SubScores(
+                ai_probability=0.5,
+                manipulation_score=50,
+                source_credibility=50,
+                fake_news_label="UNKNOWN",
+                fake_news_confidence=0.5,
+            ),
+            explanation=(
+                "Analysis partially unavailable — AI models are warming up. "
+                "Score defaults to 50/100. Refresh in 30 seconds for a full reading."
+            ),
+            domain=req.domain,
+            source_bias="unknown",
+            source_factual="unverified",
+            flagged_phrases=[],
+        )
 
-    await save_scan({
-        "url_domain": req.domain,
-        "reality_score": result.reality_score,
-        "ai_probability": result.sub_scores.ai_probability,
-        "manipulation_score": result.sub_scores.manipulation_score,
-        "source_credibility": result.sub_scores.source_credibility,
-        "country_code": req.country_code,
-        "anonymous_session_id": req.session_id,
-    })
+    try:
+        await save_scan({
+            "url_domain": req.domain,
+            "reality_score": result.reality_score,
+            "ai_probability": result.sub_scores.ai_probability,
+            "manipulation_score": result.sub_scores.manipulation_score,
+            "source_credibility": result.sub_scores.source_credibility,
+            "country_code": req.country_code,
+            "anonymous_session_id": req.session_id or None,
+        })
+    except Exception:
+        pass  # DB save failure never breaks the response
 
     return result
 
@@ -33,7 +61,10 @@ async def scan_content(req: ScanRequest):
 @router.get("/stats")
 async def get_stats():
     """Aggregate statistics for research panel."""
-    return await get_aggregate_stats()
+    try:
+        return await get_aggregate_stats()
+    except Exception:
+        return {"total_scans": 0, "average_reality_score": 0, "most_polluted_domains": []}
 
 
 @router.get("/demo")
