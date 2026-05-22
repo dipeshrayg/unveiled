@@ -144,10 +144,27 @@ async function loadOpportunityGap() {
   }
 }
 
-// ── Full analysis buttons ─────────────────────────────────────────────────────
+// ── Full analysis buttons — pass real scan data via URL param ─────────────────
 document.getElementById("btn-full-signal")?.addEventListener("click", () => {
-  chrome.tabs.create({ url: `${DASHBOARD_URL}/signal` });
+  const scoreEl = document.getElementById("score-number");
+  const score = scoreEl?.textContent;
+  // Grab whatever signal data is currently displayed and encode into URL
+  const payload = {
+    reality_score: parseInt(score) || 0,
+    color: document.getElementById("score-badge")?.className.replace("score-badge ", "").trim(),
+    label: document.getElementById("score-badge")?.textContent,
+    explanation: document.getElementById("explanation")?.textContent,
+    sub_scores: {
+      ai_probability: parseFloat(document.getElementById("val-ai")?.textContent) / 100 || 0,
+      manipulation_score: parseInt(document.getElementById("val-manip")?.textContent) || 0,
+      source_credibility: parseInt(document.getElementById("val-cred")?.textContent) || 50,
+    },
+    flagged_phrases: [...document.querySelectorAll(".flag-tag")].map(el => el.textContent),
+  };
+  const encoded = btoa(JSON.stringify(payload));
+  chrome.tabs.create({ url: `${DASHBOARD_URL}/signal?scan=${encoded}` });
 });
+
 document.getElementById("btn-full-lens")?.addEventListener("click", () => {
   chrome.tabs.create({ url: `${DASHBOARD_URL}/lens` });
 });
