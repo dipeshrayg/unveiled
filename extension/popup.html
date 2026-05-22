@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UNVEILED</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-text">UNVEILED</span>
+      <span class="logo-tag">See what's real. See what's hidden.</span>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="signal">
+      📡 SIGNAL
+    </button>
+    <button class="tab-btn" data-tab="lens">
+      🔍 LENS
+    </button>
+  </div>
+
+  <!-- SIGNAL TAB -->
+  <div id="tab-signal" class="tab-content active">
+    <div id="signal-loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Analyzing reality purity…</p>
+    </div>
+
+    <div id="signal-result" class="result-state hidden">
+      <!-- Circular Score -->
+      <div class="score-circle-wrapper">
+        <svg class="score-ring" viewBox="0 0 120 120" width="120" height="120">
+          <circle class="ring-bg" cx="60" cy="60" r="50" />
+          <circle id="ring-fill" class="ring-fill" cx="60" cy="60" r="50"
+            stroke-dasharray="314" stroke-dashoffset="314" />
+        </svg>
+        <div class="score-inner">
+          <span id="score-number" class="score-number">--</span>
+          <span class="score-label">/ 100</span>
+        </div>
+      </div>
+
+      <div id="score-badge" class="score-badge">Analyzing…</div>
+
+      <!-- Sub-scores -->
+      <div class="sub-scores">
+        <div class="sub-row">
+          <span class="sub-label">AI-Generated</span>
+          <div class="bar-track">
+            <div id="bar-ai" class="bar-fill bar-danger" style="width:0%"></div>
+          </div>
+          <span id="val-ai" class="sub-val">--</span>
+        </div>
+        <div class="sub-row">
+          <span class="sub-label">Manipulation</span>
+          <div class="bar-track">
+            <div id="bar-manip" class="bar-fill bar-danger" style="width:0%"></div>
+          </div>
+          <span id="val-manip" class="sub-val">--</span>
+        </div>
+        <div class="sub-row">
+          <span class="sub-label">Source Trust</span>
+          <div class="bar-track">
+            <div id="bar-cred" class="bar-fill bar-good" style="width:0%"></div>
+          </div>
+          <span id="val-cred" class="sub-val">--</span>
+        </div>
+      </div>
+
+      <!-- Explanation -->
+      <div id="explanation" class="explanation"></div>
+
+      <!-- Flagged phrases -->
+      <div id="flags-section" class="flags-section hidden">
+        <p class="flags-title">⚠ Flagged Phrases</p>
+        <div id="flags-list" class="flags-list"></div>
+      </div>
+
+      <button class="full-analysis-btn" id="btn-full-signal">Full Analysis →</button>
+    </div>
+
+    <div id="signal-error" class="error-state hidden">
+      <p>⚠ Could not analyze this page.</p>
+      <small>The backend may be warming up (free tier). Try again in 30 seconds.</small>
+    </div>
+  </div>
+
+  <!-- LENS TAB -->
+  <div id="tab-lens" class="tab-content hidden">
+    <div id="lens-loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Auditing your algorithmic filter…</p>
+    </div>
+
+    <div id="lens-result" class="result-state hidden">
+      <!-- Bubble Score -->
+      <div class="score-circle-wrapper">
+        <svg class="score-ring" viewBox="0 0 120 120" width="120" height="120">
+          <circle class="ring-bg" cx="60" cy="60" r="50" />
+          <circle id="bubble-ring-fill" class="ring-fill ring-bubble" cx="60" cy="60" r="50"
+            stroke-dasharray="314" stroke-dashoffset="314" />
+        </svg>
+        <div class="score-inner">
+          <span id="bubble-number" class="score-number">--</span>
+          <span class="score-label">/ 100</span>
+        </div>
+      </div>
+
+      <div class="score-badge bubble-label">Filter Bubble Score</div>
+      <div id="bubble-type" class="bubble-type"></div>
+
+      <!-- Missing perspectives -->
+      <div id="missing-section" class="missing-section"></div>
+
+      <!-- Opportunity gap -->
+      <div class="opportunity-box">
+        <div class="opp-stat">
+          <span id="opp-gap" class="opp-number">--</span>
+          <span class="opp-desc">opportunities hidden today</span>
+        </div>
+        <div id="opp-recommendation" class="opp-rec"></div>
+      </div>
+
+      <button class="full-analysis-btn" id="btn-full-lens">Show Hidden Opportunities →</button>
+    </div>
+
+    <div id="lens-error" class="error-state hidden">
+      <p>⚠ Could not complete bubble audit.</p>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    Zero cost · Open source ·
+    <a href="https://github.com/dipeshrayg/unveiled" target="_blank">GitHub</a>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
