@@ -16,13 +16,24 @@ def _compute_reality_score(
     factual_reliability: int,
     manipulation_score: int,
     source_credibility: int,
+    hf_available: bool = True,
 ) -> int:
-    score = (
-        (1 - ai_probability) * 0.30
-        + (factual_reliability / 100) * 0.25
-        + (1 - manipulation_score / 100) * 0.25
-        + (source_credibility / 100) * 0.20
-    ) * 100
+    if hf_available:
+        # Full formula: AI detection contributes 30%
+        score = (
+            (1 - ai_probability) * 0.30
+            + (factual_reliability / 100) * 0.25
+            + (1 - manipulation_score / 100) * 0.25
+            + (source_credibility / 100) * 0.20
+        ) * 100
+    else:
+        # HuggingFace unavailable — redistribute AI weight to local signals
+        # manipulation_score and source_credibility are fully local, so they dominate
+        score = (
+            (factual_reliability / 100) * 0.40
+            + (1 - manipulation_score / 100) * 0.35
+            + (source_credibility / 100) * 0.25
+        ) * 100
     return max(0, min(100, round(score)))
 
 
@@ -52,6 +63,10 @@ async def analyze_content(req: ScanRequest) -> ScanResponse:
     fake_confidence = ai_result["fake_news_confidence"]
     source_credibility = credibility_data["score"]
 
+    # Detect if HuggingFace returned a real result or just the fallback 0.5
+    # A real result will deviate measurably from exactly 0.5
+    hf_available = abs(ai_probability - 0.5) > 0.04
+
     # Fake news label adjusts factual_reliability
     if fake_label == "FAKE":
         factual_reliability = max(0, source_credibility - int(fake_confidence * 30))
@@ -59,7 +74,8 @@ async def analyze_content(req: ScanRequest) -> ScanResponse:
         factual_reliability = source_credibility
 
     reality_score = _compute_reality_score(
-        ai_probability, factual_reliability, manipulation_score, source_credibility
+        ai_probability, factual_reliability, manipulation_score, source_credibility,
+        hf_available=hf_available,
     )
     color, label = _score_to_color(reality_score)
 
