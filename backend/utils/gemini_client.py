@@ -1,25 +1,31 @@
 import os
-import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
-_configured = False
+_client = None
 
 
-def _configure():
-    global _configured
-    if not _configured:
-        api_key = os.getenv("GEMINI_API_KEY", "")
-        if api_key:
-            genai.configure(api_key=api_key)
-            _configured = True
+def _get_client():
+    global _client
+    if _client is not None:
+        return _client
+    api_key = os.getenv("GEMINI_API_KEY", "")
+    if not api_key:
+        return None
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        _client = genai.GenerativeModel("gemini-1.5-flash")
+    except Exception:
+        _client = None
+    return _client
 
 
 async def generate_reality_explanation(scores: dict, reality_score: int) -> str:
     """Generate a 2-sentence plain-English explanation of the reality score."""
-    _configure()
-    if not _configured:
+    model = _get_client()
+    if not model:
         return _fallback_explanation(scores, reality_score)
 
     prompt = (
@@ -36,7 +42,6 @@ async def generate_reality_explanation(scores: dict, reality_score: int) -> str:
     )
 
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception:
