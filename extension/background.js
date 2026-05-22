@@ -1,7 +1,7 @@
 // UNVEILED — Background Service Worker
 // Manages API calls, caching, and communication between content script and popup.
 
-const API_BASE = "https://unveiled-api.onrender.com";
+const API_BASE = "https://unveiled-m7w0.onrender.com";
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 // ── Session ID ────────────────────────────────────────────────────────────────
@@ -37,32 +37,42 @@ async function callSignalScan(pageData, sessionId) {
   const cached = await getCachedScan(pageData.domain);
   if (cached) return cached;
 
-  try {
-    const response = await fetch(`${API_BASE}/api/signal/scan`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        url: pageData.url,
-        domain: pageData.domain,
-        title: pageData.title,
-        text: pageData.text.slice(0, 3000),
-        meta_description: pageData.metaDescription,
-        author: pageData.author,
-        outbound_links: pageData.outboundLinks.slice(0, 20),
-        has_images: pageData.hasImages,
-        has_videos: pageData.hasVideos,
-        session_id: sessionId,
-        country_code: "US",
-      }),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const result = await response.json();
-    await cacheScan(pageData.domain, result);
-    return result;
-  } catch (err) {
-    console.error("[UNVEILED] Signal scan failed:", err);
-    return null;
+  const body = JSON.stringify({
+    url: pageData.url,
+    domain: pageData.domain,
+    title: pageData.title,
+    text: pageData.text.slice(0, 3000),
+    meta_description: pageData.metaDescription,
+    author: pageData.author,
+    outbound_links: pageData.outboundLinks.slice(0, 20),
+    has_images: pageData.hasImages,
+    has_videos: pageData.hasVideos,
+    session_id: sessionId,
+    country_code: "US",
+  });
+
+  // Retry up to 3 times — Render free tier can take 30-60s to wake from sleep
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 55000); // 55s timeout
+      const response = await fetch(`${API_BASE}/api/signal/scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      await cacheScan(pageData.domain, result);
+      return result;
+    } catch (err) {
+      console.warn(`[UNVEILED] Signal scan attempt ${attempt} failed:`, err.message);
+      if (attempt < 3) await new Promise(r => setTimeout(r, 5000)); // wait 5s before retry
+    }
   }
+  return null;
 }
 
 async function callBubbleAudit(domains, sessionId) {
