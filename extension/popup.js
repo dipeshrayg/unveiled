@@ -128,7 +128,7 @@ async function loadOpportunityGap() {
 
   try {
     const resp = await fetch(
-      `https://unveiled-api.onrender.com/api/lens/opportunity-gap`,
+      `https://unveiled-m7w0.onrender.com/api/lens/opportunity-gap`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

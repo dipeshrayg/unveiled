@@ -4,6 +4,23 @@
 const API_BASE = "https://unveiled-m7w0.onrender.com";
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
+// ── Keep-alive: ping backend every 10 min so Render free tier never sleeps ───
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create("keep-alive", { periodInMinutes: 10 });
+  // Immediate first ping on install
+  fetch(`${API_BASE}/health`).catch(() => {});
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  fetch(`${API_BASE}/health`).catch(() => {});
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "keep-alive") {
+    fetch(`${API_BASE}/health`).catch(() => {});
+  }
+});
+
 // ── Session ID ────────────────────────────────────────────────────────────────
 function generateSessionId() {
   return "sess_" + Math.random().toString(36).slice(2) + Date.now().toString(36);

@@ -3,7 +3,7 @@
   "name": "UNVEILED",
   "version": "1.0.0",
   "description": "See what's real. See what's hidden. Real-time Reality Purity Score + Algorithmic Opportunity Audit.",
-  "permissions": ["activeTab", "storage", "history"],
+  "permissions": ["activeTab", "storage", "history", "alarms"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"
