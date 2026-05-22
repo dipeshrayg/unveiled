@@ -39,7 +39,7 @@ jobs:
         run: npm run build
         working-directory: frontend
         env:
-          VITE_API_URL: https://unveiled-api.onrender.com
+          VITE_API_URL: https://unveiled-m7w0.onrender.com
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
